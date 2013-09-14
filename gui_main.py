@@ -136,7 +136,7 @@ class Gui:
       else:
          parser_data[key_name]=parser'''
     
-   def create_selection_box(self,data):
+   def create_selection_box(self,data,parent):
       ''' Creates a selection box with the stream data. Uses the global dictionary
        stream_data
        
@@ -157,22 +157,24 @@ class Gui:
       
          for key in sorted(self.button_dic):
             self.button_dic[key] = IntVar()
-            check_button = Checkbutton(self.selection_box, text=key,
+            check_button = Checkbutton(parent, text=key,
                              variable=self.button_dic[key])
             check_button.pack(side="top")
             
+         cancel_button=Button(parent, text="Cancel", 
+                         command=selection_box.destroy)
+         cancel_button.pack()
+            
    def display_stats_options(self,stream_data):
       ''' Displays the seleted stream stats inside the canvas component '''
-      self.selection_box=Toplevel(self.frame) 
-      self.create_selection_box(stream_data)
-      self.selection_box.title('Select Streams')
-      display_button=Button(self.selection_box, text="Display Stats", 
+      selection_box=Toplevel(self.frame) 
+      self.create_selection_box(stream_data,selection_box)
+      selection_box.title('Select Streams')
+      display_button=Button(selection_box, text="Display Stats", 
                          command= lambda: self.display_stats(stream_data))
       display_button.pack()
       
-      cancel_button=Button(self.selection_box, text="Cancel", 
-                         command=self.selection_box.destroy)
-      cancel_button.pack()
+       
       
    def display_stats(self,stream_data):
    
@@ -212,52 +214,76 @@ class Gui:
 			#save data into a user seleted dirotory 
 
    def convolution_options(self,stream_data,parser_data):
-      self.selection_box=Toplevel(self.frame) 
-      self.create_selection_box(stream_data)
-      self.selection_box.title('Convolution options')
+      selection_box=Toplevel(self.frame) 
+      self.create_selection_box(stream_data,selection_box)
+      selection_box.title('Convolution options')
 						
-      self.inst2hz=Pmw.EntryField(self.selection_box,
+      self.inst2hz=Pmw.EntryField(selection_box,
                     labelpos = 'w',
                     label_text = 'Inst to Hz:',
                     value = 2.0,
                     validate = {'validator' : 'real'})
       self.inst2hz.pack()  
           
-      self.water_level=Pmw.EntryField(self.selection_box,
+      self.water_level=Pmw.EntryField(selection_box,
                     labelpos = 'w',
                     label_text = 'Inst to Hz:',
                     value = 60,
                     validate = {'validator' : 'real'})
       self.water_level.pack() 
       
-      auto_button=Button(self.selection_box, text="Automatic", 
+      auto_button=Button(selection_box, text="Automatic", 
                 command= lambda: self.convolution_automatic(stream_data,parser_data))
       auto_button.pack()  
       
-      manual_button=Button(self.selection_box, text="Manual", 
+      manual_button=Button(selection_box, text="Manual", 
                 command=lambda: self.convolution_manual(stream_data,parser_data))
       manual_button.pack()  
                       
-      cancel_button=Button(self.selection_box, text="Cancel", 
-                         command=self.selection_box.destroy)
-      cancel_button.pack()
+       
       
-   def convolution_manual(self,stream_data):
-      ''' create a cross list type widget to associate the parser file with the 
-      wafeform data'''
-      pass
+   def convolution_manual(self,stream_data, parser_data):
+      ''' create two selection boxes, one for the waveform data and another for the parser
+          data. the user must only select one checkbox per window. the two selected files 
+          are used to convert the the trace from counts to m/s'''
+          
+      waveform_box=Toplevel(self.frame)
+      #stream_aux={}
+      self.create_selection_box(stream_data,waveform_box)
+      # Only the first stream seleted will be saved
+      for key, value in self.button_dic.items():
+         state = value.get()
+         if state:
+            stream_aux=stream_data[key].copy()
+            
+      #Create the selection box for the parser daa
+      parser_box=Toplevel(self.frame)      
+      self.create_selection_box(stream_data,parser_box)
       
+      for key, value in self.button_dic.items():
+         state = value.get()
+         if state:
+            parser_aux=parser_data[key]
+       
+      #Convolution process     
+      for tr in stream_aux:
+         paz=parser_aux.getPAZ(tr.stats)
+            
+         df = tr.stats.sampling_rate
+         tr.data = seisSim(tr.data, df, paz_remove=paz, paz_simulate=inst2hz,
+						     water_level=waterLevel) 
+         stream_data[key+'_converted']=tr.copy() 
+            
+            
    def save_options(self,stream_data):
-      self.selection_box=Toplevel(self.frame) 
-      self.create_selection_box(stream_data)
-      self.selection_box.title('Select the streams you wish to save') 
+      selection_box=Toplevel(self.frame) 
+      self.create_selection_box(stream_data,selection_box)
+      selection_box.title('Select the streams you wish to save') 
       
-      save_button=Button(self.selection_box, text="Save", 
+      save_button=Button(selection_box, text="Save", 
                          command=lambda: self.save_stream(stream_data))
       save_button.pack(side=BOTTOM)
-      cancel_button=Button(self.selection_box, text="Cancel", 
-                         command=self.selection_box.destroy)
-      cancel_button.pack(side=BOTTOM)
+      
       
    def save_stream(self,stream_data):
       ''' '''
@@ -271,11 +297,11 @@ class Gui:
             self.button_dic[key].set(0)   
             
    def filter_options(self,stream_data):
-      self.selection_box=Toplevel(self.frame) 
-      self.create_selection_box(stream_data)
-      self.selection_box.title('Butterworth Filter options')
+      selection_box=Toplevel(self.frame) 
+      self.create_selection_box(stream_data,selection_box)
+      selection_box.title('Butterworth Filter options')
       
-      self.freq_min=Pmw.EntryField(self.selection_box,
+      self.freq_min=Pmw.EntryField(selection_box,
                     labelpos = 'w',
                     label_text = 'Freq Min (Hz):',
                     value = 1,
@@ -283,14 +309,14 @@ class Gui:
       self.freq_min.pack()
     
       
-      self.freq_max=Pmw.EntryField(self.selection_box,
+      self.freq_max=Pmw.EntryField(selection_box,
                     labelpos = 'w',
                     label_text = 'Freq Max (Hz):',
                     value = 20,
                     validate = {'validator' : 'numeric'})
       self.freq_max.pack()
       
-      self.freq=Pmw.EntryField(self.selection_box,
+      self.freq=Pmw.EntryField(selection_box,
                     labelpos = 'w',
                     label_text = 'Corner Freq (Hz):',
                     value = 1,
@@ -298,27 +324,25 @@ class Gui:
       self.freq.pack()
       b_pass='bandpass'; b_stop='bandstop'; h_pass='highpass'; l_pass='lowpass';  
       
-      bandpass_button=Button(self.selection_box, text="Bandpass",
+      bandpass_button=Button(selection_box, text="Bandpass",
                          command=lambda: self.apply_filter(b_pass, stream_data))
       bandpass_button.pack()
       
-      bandstop_button=Button(self.selection_box, text="Bandstop",
+      bandstop_button=Button(selection_box, text="Bandstop",
                          command=lambda: self.apply_filter(b_stop, stream_data))
       bandstop_button.pack()
       
       
-      highpass_button=Button(self.selection_box, text="Highpass",
+      highpass_button=Button(selection_box, text="Highpass",
                          command=lambda: self.apply_filter(h_pass, stream_data))
       highpass_button.pack()
       
-      lowpass_button=Button(self.selection_box, text="Lowpass",
+      lowpass_button=Button(selection_box, text="Lowpass",
                          command=lambda: self.apply_filter(l_pass, stream_data))
       lowpass_button.pack()
       
       
-      cancel_button=Button(self.selection_box, text="Cancel", 
-                         command=self.selection_box.destroy)
-      cancel_button.pack(side=BOTTOM)
+      
    
    def apply_filter(self, filter_key, stream_data):
       ''' Apply's the given filtered by keyword filter_key.
@@ -349,15 +373,13 @@ class Gui:
   
    def plot_stream_options(self, stream_data):
       '''Plots the stream file that was previsouly loaded by the user'''
-      self.selection_box=Toplevel(self.frame) 
-      self.create_selection_box(stream_data)
-      self.selection_box.title('Selecting Stations')
-      plot_button = Button(self.selection_box, text="Plot", 
+      selection_box=Toplevel(self.frame) 
+      self.create_selection_box(stream_data,selection_box)
+      selection_box.title('Selecting Stations')
+      plot_button = Button(selection_box, text="Plot", 
                command=lambda: self.plot_stream(stream_data))
       plot_button.pack()
-      cancel_button=Button(self.selection_box, text="Cancel", 
-                         command=self.selection_box.destroy)
-      cancel_button.pack()
+       
       
    def plot_stream(self, stream_data):     
       for key, value in self.button_dic.items():
@@ -371,6 +393,8 @@ class Gui:
 root = Tk()
 root.geometry("600x400")
 root.title('Gorbatikov Method')
+Pmw.initialise(root)
+root.option_add('*Toplevel*background', 'blue')
 
 exitButton = Button(root, text = 'Exit', command =root.destroy)
 exitButton.pack(side=BOTTOM)
